@@ -3,3 +3,12 @@
 .RData
 .Ruserdata
 *.Rproj
+
+# MacOS directory file
+.DS_Store
+
+# Data
+data/
+
+# Outputs
+outputs/
