@@ -15,3 +15,6 @@ outputs/
 
 # API keys
 us_census_api_key.txt
+
+# OSM cache
+rosm.cache/
