@@ -73,11 +73,17 @@ total_revenue_2024 <- total_revenue %>%
 # Calculating the proportion of total energy consumption by census tract
 dte_doe_consumption <- dte_lead %>%
   filter(state == "MI") %>%
-  mutate(total_energy_costs = yr_cost * h_count) %>%
+  mutate(total_energy_costs = yr_cost * h_count,
+         total_elec_costs = yr_cost_e * h_count,
+         total_gas_other_costs = (yr_cost_g + yr_cost_o) * h_count) %>%
   group_by(GEOID) %>%
-  summarize(lead_energy_costs = sum(total_energy_costs, na.rm = TRUE)) %>%
+  summarize(lead_energy_costs = sum(total_energy_costs, na.rm = TRUE),
+            lead_elec_costs = sum(total_elec_costs, na.rm = TRUE),
+            lead_gas_other_costs = sum(total_gas_other_costs, na.rm = TRUE)) %>%
   ungroup() %>%
-  mutate(prop = lead_energy_costs / sum(lead_energy_costs, na.rm = TRUE))
+  mutate(prop = lead_energy_costs / sum(lead_energy_costs, na.rm = TRUE)) %>%
+  mutate(prop_elec = lead_elec_costs / lead_energy_costs,
+         prop_gas_other = lead_gas_other_costs / lead_energy_costs)
 
 # Broadcast total DTE revenue across service territory using DOE LEAD proportions
 dte_doe_consumption <- dte_doe_consumption %>%
@@ -92,5 +98,9 @@ dte_doe_consumption <- dte_doe_consumption %>%
     median_household_income,
     by = c("GEOID")
   ) %>%
-  mutate(avg_annual_hh_dte_costs = dte_energy_costs / hh_count) %>%
-  mutate(burden = avg_annual_hh_dte_costs / hh_med_income)
+  mutate(avg_annual_hh_dte_costs = dte_energy_costs / hh_count,
+         avg_annual_hh_dte_elec_costs = (dte_energy_costs * prop_elec) / hh_count,
+         avg_annual_hh_dte_gas_other_costs = (dte_energy_costs * prop_gas_other) / hh_count) %>%
+  mutate(burden = avg_annual_hh_dte_costs / hh_med_income,
+         burden_e = avg_annual_hh_dte_elec_costs / hh_med_income,
+         burden_go = avg_annual_hh_dte_gas_other_costs / hh_med_income)
