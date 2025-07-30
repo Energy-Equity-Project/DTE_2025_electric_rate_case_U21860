@@ -6,9 +6,13 @@ library(lubridate)
 library(tidycensus)
 library(ggspatial)
 library(janitor)
+library(tigris)
 
 
 # GIS LAYERS====================================================================
+
+# MI places
+mi_places <- places(state = "MI")
 
 # DTE service territory
 dte_service_territory <- st_read("../../Data/Electric_Retail_Service_Territories/Electric_Retail_Service_Territories.shp") %>%
@@ -48,6 +52,10 @@ dte_lead <- dte_tracts %>%
     by = c("GEOID"="gi")
   )
 
+reliability_metrics <- read.csv("outputs/dte_reliability_metrics_2023_2024.csv") %>%
+  mutate(caidi_percentile = percent_rank(avg_caidi),
+         saidi_percentile = percent_rank(avg_saidi))
+
 # US Census ACS data============================================================
 median_household_income <- read.csv("outputs/median_household_income_2023.csv", colClasses = "character") %>%
   mutate(GEOID = as.numeric(paste0(state, county, tract))) %>%
@@ -71,7 +79,8 @@ miejscreen <- read.csv("outputs/miejscreen.csv")
 # Climate Vulnerability Index===================================================
 
 climate_vulnerability_index <- read_excel("../../Data/Climate Vulnerability Index/Master CVI Dataset - Oct 2023.xlsx", sheet = "Domain CVI Values") %>%
-  clean_names()
+  clean_names() %>%
+  mutate(baseline_all_percentile = percent_rank(baseline_all))
 
 # DTE data======================================================================
 # FIXIT: is this just revenue from electric?
@@ -133,10 +142,15 @@ dte_doe_consumption <- dte_doe_consumption %>%
   left_join(
     climate_vulnerability_index %>%
       mutate(GEOID = as.numeric(fips_code)) %>%
-      select(GEOID, climate_vulnerability = overall_cvi_score),
+      select(GEOID, climate_community_baseline = baseline_all_percentile),
+    by = c("GEOID")
+  ) %>%
+  # Adding Avg CAIDI per census tract for 2024
+  left_join(
+    reliability_metrics %>%
+      select(GEOID, saidi_percentile),
     by = c("GEOID")
   )
-
 
 # Selecting tracts for community-wide PIPP======================================
 
@@ -159,7 +173,10 @@ community_wide_pipp <- dte_doe_consumption %>%
   mutate(affordable_dte_cost = 0.0322 * hh_med_income) %>%
   mutate(affordability_gap_per_hh = avg_annual_hh_dte_elec_costs - affordable_dte_cost) %>%
   mutate(total_affordability_gap = affordability_gap_per_hh * hh_count) %>%
-  mutate(burden_e = burden_e * 100) %>%
+  mutate(burden_e = burden_e * 100,
+         bipoc_percent = bipoc_percent / 100,
+         li_percent = li_percent / 100,
+         MiEJScorePL = MiEJScorePL / 100) %>%
   select(GEOID,
          county,
          hh_count,
@@ -169,7 +186,8 @@ community_wide_pipp <- dte_doe_consumption %>%
          MiEJScorePL,
          li_percent,
          bipoc_percent,
-         climate_vulnerability,
+         climate_community_baseline,
+         saidi_percentile,
          affordability_gap_per_hh,
          total_affordability_gap) %>%
   arrange(desc(burden_e))
@@ -190,8 +208,33 @@ ggplot() +
     color = NA,
     alpha = 0.5
   ) +
+  geom_sf(
+    data = mi_places %>%
+      filter(NAME == "Detroit"),
+      # mutate(INTPTLAT = as.numeric(INTPTLAT),
+      #        INTPTLON = as.numeric(INTPTLON)) %>%
+      # filter(INTPTLAT > 42.2 & INTPTLAT < 42.5 &
+      #          INTPTLON > -83.3 & INTPTLON < -82.9),
+    color = "#002e55",
+    linewidth = 1,
+    alpha = 0
+  ) +
+  geom_sf_text(
+    data = mi_places %>%
+      filter(NAME == "Detroit"),
+    aes(label = NAME),
+    color = "black",
+    size = 5
+  ) +
   theme(
     axis.text = element_blank(),
-    axis.ticks = element_blank()
+    axis.ticks = element_blank(),
+    axis.title = element_blank()
   )
-  
+
+ggsave(
+  "outputs/community_wide_pipp_locations.png",
+  units = "in",
+  height = 5,
+  width = 7
+)
