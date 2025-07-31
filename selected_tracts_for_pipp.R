@@ -83,7 +83,6 @@ climate_vulnerability_index <- read_excel("../../Data/Climate Vulnerability Inde
   mutate(baseline_all_percentile = percent_rank(baseline_all))
 
 # DTE data======================================================================
-# FIXIT: is this just revenue from electric?
 total_revenue <- read.csv("outputs/dte_total_revenue_2019_2024.csv")
 
 total_revenue_2024 <- total_revenue %>%
@@ -170,9 +169,12 @@ community_wide_pipp <- dte_doe_consumption %>%
     by = c("county_id"="county_code")
   ) %>%
   # Calculating affordability gap
-  mutate(affordable_dte_cost = 0.0322 * hh_med_income) %>%
-  mutate(affordability_gap_per_hh = avg_annual_hh_dte_elec_costs - affordable_dte_cost) %>%
-  mutate(total_affordability_gap = affordability_gap_per_hh * hh_count) %>%
+  mutate(affordable_dte_cost_322 = 0.0322 * hh_med_income,
+         affordable_dte_cost_215 = 0.0215 * hh_med_income) %>%
+  mutate(affordability_gap_per_hh_322 = avg_annual_hh_dte_elec_costs - affordable_dte_cost_322,
+         affordability_gap_per_hh_215 = avg_annual_hh_dte_elec_costs - affordable_dte_cost_215) %>%
+  mutate(total_affordability_gap_322 = affordability_gap_per_hh_322 * hh_count,
+         total_affordability_gap_215 = affordability_gap_per_hh_215 * hh_count) %>%
   mutate(burden_e = burden_e * 100,
          bipoc_percent = bipoc_percent / 100,
          li_percent = li_percent / 100,
@@ -188,8 +190,10 @@ community_wide_pipp <- dte_doe_consumption %>%
          bipoc_percent,
          climate_community_baseline,
          saidi_percentile,
-         affordability_gap_per_hh,
-         total_affordability_gap) %>%
+         affordability_gap_per_hh_322,
+         total_affordability_gap_322,
+         affordability_gap_per_hh_215,
+         total_affordability_gap_215) %>%
   arrange(desc(burden_e))
 
 write.csv(
