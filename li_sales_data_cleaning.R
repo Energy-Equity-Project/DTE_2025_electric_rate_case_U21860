@@ -52,6 +52,12 @@ li_customer_counts <- li_sales[1:nrow(li_sales), c(1, 30:43)] %>%
   pivot_longer(-c(date), names_to = "rate_plan", values_to = "customer_count") %>%
   mutate(customer_count = as.numeric(customer_count))
 
+write.csv(
+  li_customer_counts,
+  "outputs/li_customer_counts.csv",
+  row.names = FALSE
+)
+
 # Average bill by customer
 li_avg_bill_per_customer <- li_revenues %>%
   left_join(
