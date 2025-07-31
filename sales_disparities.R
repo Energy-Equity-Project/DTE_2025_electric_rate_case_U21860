@@ -91,4 +91,9 @@ non_li_rates %>%
   filter(rate_plan == "d1_11") %>%
   summarize(mean_diff = mean(rate_difference, na.rm = TRUE))
 
+# Average percent kWH sold to li is ~3.4% of total kWh sold
+non_li_rates %>%
+  filter(rate_plan != "d1_6") %>%
+  mutate(percent_li_kwh = 100 * (li_sales_kWh / total_sales_kWh)) %>%
+  summarize(avg_percent = mean(percent_li_kwh, na.rm = TRUE))
 
