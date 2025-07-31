@@ -41,6 +41,15 @@ non_li_revenue <- total_revenue %>%
   ) %>%
   mutate(non_li_customers_revenue = all_customers_revenue - li_customers_revenue)
 
+# Low income revenue as a percent of total revenue
+revenue <- non_li_revenue %>%
+  mutate(percent_li_revenue = 100 * (li_customers_revenue / all_customers_revenue)) %>%
+  filter(rate_plan != "d1_6")
+
+# Average li revenue as a percent of all DTE revenue is ~3.4%
+revenue %>%
+  summarize(percent_li_revenue = mean(percent_li_revenue, na.rm = TRUE))
+
 avg_customer_bills <- non_li_revenue %>%
   select(date, rate_plan, li_customers_revenue, non_li_customers_revenue) %>%
   left_join(
