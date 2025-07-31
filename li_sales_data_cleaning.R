@@ -24,6 +24,12 @@ li_revenues <- li_sales[1:nrow(li_sales), 1:15] %>%
   pivot_longer(-c(date), names_to = "rate_plan", values_to = "revenue") %>%
   mutate(revenue = as.numeric(revenue))
 
+write.csv(
+  li_revenues,
+  "outputs/li_revenues.csv",
+  row.names = FALSE
+)
+
 # Billed sales (kWh) to low income customers by rate schedule
 li_kwh <- li_sales[1:nrow(li_sales), c(1, 16:29)] %>%
   row_to_names(row_number = 1) %>%
@@ -31,6 +37,12 @@ li_kwh <- li_sales[1:nrow(li_sales), c(1, 16:29)] %>%
   rename(date = na) %>%
   pivot_longer(-c(date), names_to = "rate_plan", values_to = "kWh") %>%
   mutate(kWh = as.numeric(kWh))
+
+write.csv(
+  li_kwh,
+  "outputs/li_kwh.csv",
+  row.names = FALSE
+)
 
 # Counts of low income customers by rate schedule
 li_customer_counts <- li_sales[1:nrow(li_sales), c(1, 30:43)] %>%
@@ -41,7 +53,7 @@ li_customer_counts <- li_sales[1:nrow(li_sales), c(1, 30:43)] %>%
   mutate(customer_count = as.numeric(customer_count))
 
 # Average bill by customer
-avg_bill_per_customer <- li_revenues %>%
+li_avg_bill_per_customer <- li_revenues %>%
   left_join(
     li_customer_counts,
     by = c("date", "rate_plan")
