@@ -62,7 +62,6 @@ household_counts <- read.csv("outputs/total_number_of_households_2023.csv", colC
 miejscreen <- read.csv("outputs/miejscreen.csv")
 
 # DTE data======================================================================
-# FIXIT: is this just revenue from electric?
 total_revenue <- read.csv("outputs/dte_total_revenue_2019_2024.csv")
 
 total_revenue_2024 <- total_revenue %>%
@@ -142,7 +141,7 @@ dte_doe_consumption %>%
   summarize(hh_count = sum(hh_count, na.rm = TRUE),
             n = n())
 
-# Number of tracts above 483%
+# Number of tracts above 4.83%
 dte_doe_consumption %>%
   filter(burden_e > 0.0483) %>%
   summarize(hh_count = sum(hh_count, na.rm = TRUE),
