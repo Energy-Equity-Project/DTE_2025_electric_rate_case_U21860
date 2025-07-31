@@ -205,7 +205,7 @@ ggplot() +
     data = mi_tracts %>%
       filter(GEOID %in% unique(community_wide_pipp$GEOID)),
     fill = "red",
-    color = NA,
+    color = "black",
     alpha = 0.5
   ) +
   geom_sf(
