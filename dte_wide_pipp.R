@@ -66,45 +66,87 @@ dte_total_customer_count <- dte_customers_counts %>%
   summarize(mean_total_customers = sum(mean_total_customers, na.rm = TRUE)) %>%
   pull(mean_total_customers)
 
-tmp <- dte_lead %>%
+# How much of utility bills are due to electric consumption: 0.5841223
+dte_lead %>%
+  # LI customers
+  filter(fpl150 %in% c("0-100%", "100-150%", "150-200%")) %>%
+  summarize(prop = weighted.mean(elep / total_cost, units, na.rm = TRUE),
+            elep = weighted.mean(elep, units, na.rm = TRUE),
+            total_cost = weighted.mean(total_cost, na.rm = TRUE))
+
+0.5841223 * 0.06
+
+dte_df <- dte_lead %>%
   mutate(total_electric_costs = elep * units) %>%
   mutate(prop_lead = total_electric_costs / sum(total_electric_costs, na.rm = TRUE)) %>%
   mutate(dte_energy_costs = prop_lead * total_revenue_2024) %>%
   mutate(prop_lead_units = units / sum(units, na.rm = TRUE)) %>%
   mutate(dte_customers = prop_lead_units * dte_total_customer_count) %>%
   mutate(avg_hh_dte_energy_costs = dte_energy_costs / dte_customers) %>%
-  mutate(dte_burden_e = avg_hh_dte_energy_costs / hincp) %>%
-  mutate(target_burden_e = 0.0537) %>%
-  mutate(target_avg_hh_elec_cost = hincp * target_burden_e) %>%
-  mutate(affordability_gap = avg_hh_dte_energy_costs - target_avg_hh_elec_cost)
-  
+  mutate(dte_burden_e = avg_hh_dte_energy_costs / hincp)
 
-tmp %>%
-  filter(affordability_gap > 0) %>%
-  summarize(affordability_gap = sum(affordability_gap * dte_customers, na.rm = TRUE))
 
-tmp %>%
-  filter(affordability_gap > 0) %>%
+dte_pipp <- dte_df %>%
+  mutate(
+    target_burden_e_6 = 0.06 * 0.5841223,
+    target_burden_e_10 = 0.1 * 0.5841223
+  ) %>%
+  mutate(
+    target_avg_hh_elec_cost_6 = hincp * target_burden_e_6,
+    target_avg_hh_elec_cost_10 = hincp * target_burden_e_10,
+  ) %>%
+  mutate(
+    affordability_gap_6 = avg_hh_dte_energy_costs - target_avg_hh_elec_cost_6,
+    affordability_gap_10 = avg_hh_dte_energy_costs - target_avg_hh_elec_cost_10
+  )
+
+
+# DTE wide PIPP affordability gap for 6% total energy burden====================
+
+# Total affordability gap
+dte_pipp %>%
+  filter(affordability_gap_6 > 0) %>%
+  summarize(affordability_gap_6 = sum(affordability_gap_6 * dte_customers, na.rm = TRUE))
+
+# Affordability gap for LI customers only
+dte_pipp %>%
+  filter(affordability_gap_6 > 0) %>%
   filter(fpl150 %in% c("0-100%", "100-150%", "150-200%")) %>%
-  summarize(affordability_gap = sum(affordability_gap * dte_customers, na.rm = TRUE))
+  summarize(affordability_gap_6 = sum(affordability_gap_6 * dte_customers, na.rm = TRUE))
 
-tmp %>%
-  filter(affordability_gap > 0) %>%
+# total number of DTE customers served by PIPP
+dte_pipp %>%
+  filter(affordability_gap_6 > 0) %>%
   summarize(dte_customers = sum(dte_customers, na.rm = TRUE))
 
-tmp %>%
-  filter(affordability_gap > 0) %>%
+# LI customers served by PIPP
+dte_pipp %>%
+  filter(affordability_gap_6 > 0) %>%
   filter(fpl150 %in% c("0-100%", "100-150%", "150-200%")) %>%
   summarize(dte_customers = sum(dte_customers, na.rm = TRUE))
 
 
-dte_lead %>%
-  filter(fpl150 %in% c("0-100%", "100-150%", "150-200%")) %>%
-  summarize(prop = weighted.mean(elep / total_cost, units, na.rm = TRUE),
-            elep = weighted.mean(elep, units, na.rm = TRUE),
-            total_cost = weighted.mean(total_cost, na.rm = TRUE))
+# DTE wide PIPP affordability gap for 10% total energy burden===================
 
-tmp %>%
+# Total affordability gap
+dte_pipp %>%
+  filter(affordability_gap_10 > 0) %>%
+  summarize(affordability_gap_10 = sum(affordability_gap_6 * dte_customers, na.rm = TRUE))
+
+# Affordability gap from LI customers only
+dte_pipp %>%
+  filter(affordability_gap_10 > 0) %>%
+  filter(fpl150 %in% c("0-100%", "100-150%", "150-200%")) %>%
+  summarize(affordability_gap_10 = sum(affordability_gap_6 * dte_customers, na.rm = TRUE))
+
+# total number of DTE customers served by PIPP
+dte_pipp %>%
+  filter(affordability_gap_10 > 0) %>%
+  summarize(dte_customers = sum(dte_customers, na.rm = TRUE))
+
+# LI customers served by PIPP
+dte_pipp %>%
+  filter(affordability_gap_10 > 0) %>%
   filter(fpl150 %in% c("0-100%", "100-150%", "150-200%")) %>%
   summarize(dte_customers = sum(dte_customers, na.rm = TRUE))
 
