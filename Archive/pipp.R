@@ -1,18 +1,18 @@
 
 # Libraries
 library(tidyverse)
-library(janitor)
 library(sf)
+library(lubridate)
 
-# Directory structure
-outdir <- "outputs"
+
+# GIS LAYERS====================================================================
 
 # DTE service territory
 dte_service_territory <- st_read("../../Data/Electric_Retail_Service_Territories/Electric_Retail_Service_Territories.shp") %>%
   filter(NAME == "DTE ELECTRIC COMPANY")
 
 # US census geography
-mi_tracts <- st_read("../../Data/GIS/US_Census/Census Tract Shapefiles/2022/tl_2022_26_tract/tl_2022_26_tract.shp")
+mi_tracts <- st_read("../../Data/GIS/US_Census/Census Tract Shapefiles/2020/tl_2020_26_tract/tl_2020_26_tract.shp")
 
 st_crs(dte_service_territory)
 st_crs(mi_tracts)
@@ -33,121 +33,173 @@ dte_service_territory <- st_make_valid(dte_service_territory)
 
 # Find all the census tracts within DTE service territory
 dte_tracts <- st_intersection(mi_tracts, dte_service_territory) %>%
-  mutate(GEOID = as.numeric(GEOID))
+  mutate(GEOID = as.numeric(GEOID)) %>%
+  select(GEOID) %>%
+  distinct()
 
-# Find average distribution of burden across income levels in dte census tracts
-energy_type_summary <- doe_lead %>%
-  filter(gi %in% unique(dte_tracts$GEOID)) %>%
-  group_by(fpl) %>%
-  summarize(
-    mean_elec_burden = weighted.mean(burden_e, h_count, na.rm = TRUE),
-    mean_gas_burden = weighted.mean(burden_g, h_count, na.rm = TRUE),
-    mean_other_burden = weighted.mean(burden_o, h_count, na.rm = TRUE),
-    mean_elec_cost = weighted.mean(yr_cost_e, h_count, na.rm = TRUE),
-    mean_gas_cost = weighted.mean(yr_cost_g, h_count, na.rm = TRUE),
-    mean_other_cost = weighted.mean(yr_cost_o, h_count, na.rm = TRUE)
-  ) %>%
-  ungroup()
+dte_lead <- dte_tracts %>%
+  as.data.frame() %>%
+  select(-geometry) %>%
+  left_join(
+    doe_lead,
+    by = c("GEOID"="gi")
+  )
 
-write.csv(
-  energy_type_summary,
-  file.path(outdir, "energy_type_summary.csv"),
-  row.names = FALSE
-)
+# US Census ACS data============================================================
+median_household_income <- read.csv("outputs/median_household_income_2023.csv", colClasses = "character") %>%
+  mutate(GEOID = as.numeric(paste0(state, county, tract))) %>%
+  select(-c(NAME, state, county, tract)) %>%
+  rename(hh_med_income = S1901_C01_012E) %>%
+  mutate(hh_med_income= as.numeric(hh_med_income))
 
-li_non_li_costs <- doe_lead %>%
-  filter(gi %in% unique(dte_tracts$GEOID)) %>%
-  mutate(fpl = case_when(
-    fpl %in% c("0-100", "100-150", "150-200") ~ "0-200",
-    TRUE ~ "200+"
-  )) %>%
-  group_by(fpl) %>%
-  summarize(
-    mean_elec_burden = weighted.mean(burden_e, h_count, na.rm = TRUE),
-    mean_gas_burden = weighted.mean(burden_g, h_count, na.rm = TRUE),
-    mean_other_burden = weighted.mean(burden_o, h_count, na.rm = TRUE),
-    mean_elec_cost = weighted.mean(yr_cost_e, h_count, na.rm = TRUE),
-    mean_gas_cost = weighted.mean(yr_cost_g, h_count, na.rm = TRUE),
-    mean_other_cost = weighted.mean(yr_cost_o, h_count, na.rm = TRUE)
-  ) %>%
-  ungroup()
+household_counts <- read.csv("outputs/total_number_of_households_2023.csv", colClasses = "character") %>%
+  mutate(GEOID = as.numeric(paste0(state, county, tract))) %>%
+  select(-c(NAME, state, county, tract)) %>%
+  rename(hh_count = S1101_C01_001E) %>%
+  mutate(hh_count= as.numeric(hh_count))
 
-write.csv(
-  li_non_li_costs,
-  file.path(outdir, "li_vs_non-li_energy_costs.csv"),
-  row.names = FALSE
-)
+# MiEJScreen====================================================================
+miejscreen <- read.csv("outputs/miejscreen.csv")
 
-# Calculate for all energy burden reductions using a PIPP
-elec_prop_cost <- 0.5368
-affordable_burden <- 0.06
-affordable_elec_burden <- affordable_burden * elec_prop_cost
-affordable_gas_burden <- affordable_burden * (1 - elec_prop_cost)
+# DTE data======================================================================
+total_revenue <- read.csv("outputs/dte_total_revenue_2019_2024.csv")
 
-pipp <- doe_lead %>%
-  filter(gi %in% unique(dte_tracts$GEOID)) %>%
-  mutate(fpl = case_when(
-    fpl %in% c("0-100", "100-150", "150-200") ~ "0-200",
-    TRUE ~ "200+"
-  )) %>%
-  mutate(affordable_elec_cost = income * affordable_elec_burden,
-         affordable_gas_cost = yr_cost * affordable_gas_burden) %>%
-  mutate(elec_gap = yr_cost_e - affordable_elec_cost,
-         gas_gap = (yr_cost - yr_cost_e) - affordable_gas_cost) %>%
-  filter(elec_gap > 0 &
-           gas_gap > 0) %>%
-  group_by(fpl) %>%
-  summarize(mean_elec_gap = weighted.mean(elec_gap, h_count, na.rm = TRUE),
-            mean_gas_cap = weighted.mean(gas_gap, h_count, na.rm = TRUE)) %>%
-  ungroup()
-
-# Federal Poverty Level US Census 2022
-fpl_hh <- read.csv("data/ACSDT5Y2022.B17026_2024-09-26T151853/ACSDT5Y2022.B17026-Data.csv") %>%
-  clean_names() %>%
-  select("geo_id" | ends_with("e")) %>%
-  row_to_names(row_number = 1) %>%
-  clean_names() %>%
-  mutate(geoid = as.numeric(substr(geography, 10, 20))) %>%
-  select(-c(geography, geographic_area_name)) %>%
-  select(-estimate_total) %>%
-  pivot_longer(-geoid, names_to = "fpl", values_to = "hh_count") %>%
-  mutate(hh_count = as.numeric(hh_count)) %>%
-  mutate(fpl = case_when(
-    fpl == "estimate_total_under_50" ~ "0-100",
-    fpl == "estimate_total_50_to_74" ~ "0-100",
-    fpl == "estimate_total_75_to_99" ~ "0-100",
-    fpl == "estimate_total_1_00_to_1_24" ~ "100-150",
-    fpl == "estimate_total_1_25_to_1_49" ~ "100-150",
-    fpl == "estimate_total_1_50_to_1_74" ~ "150-200",
-    fpl == "estimate_total_1_75_to_1_84" ~ "150-200",
-    fpl == "estimate_total_1_85_to_1_99" ~ "150-200",
-    fpl == "estimate_total_1_85_to_1_99" ~ "150-200",
-    fpl == "estimate_total_2_00_to_2_99" ~ "200-400",
-    fpl == "estimate_total_3_00_to_3_99" ~ "200-400",
-    fpl == "estimate_total_4_00_to_4_99" ~ "400+",
-    fpl == "estimate_total_5_00_and_over" ~ "400+",
-    TRUE ~ fpl
-  )) %>%
-  group_by(geoid, fpl) %>%
-  summarize(hh_count = sum(hh_count, na.rm = TRUE)) %>%
+total_revenue_2024 <- total_revenue %>%
+  mutate(year = year(date)) %>%
+  filter(year == 2024) %>%
+  summarize(revenue = sum(revenue, na.rm = TRUE)) %>%
   ungroup() %>%
-  mutate(fpl = factor(fpl, levels = c(
-    "0-100", "100-150", "150-200", "200-400", "400+"
-  )))
+  pull(revenue)
 
-write.csv(
-  fpl_hh %>%
-    group_by(fpl) %>%
-    summarize(hh_count = sum(hh_count, na.rm = TRUE)) %>%
-    ungroup() %>%
-    mutate(hh_percent = 100 * (hh_count / sum(hh_count))),
-  file.path(outdir, "fpl_hh_summary.csv"),
-  row.names = FALSE
-)
+# Analysis======================================================================
 
-fpl_hh %>%
-  group_by(fpl) %>%
-  summarize(hh_count = sum(hh_count, na.rm = TRUE)) %>%
+# Calculating the proportion of total energy consumption by census tract
+dte_doe_consumption <- dte_lead %>%
+  filter(state == "MI") %>%
+  mutate(total_elec_costs = yr_cost_e * h_count) %>%
+  group_by(GEOID) %>%
+  summarize(lead_elec_costs = sum(total_elec_costs, na.rm = TRUE)) %>%
   ungroup() %>%
-  mutate(hh_percent = 100 * (hh_count / sum(hh_count)))
- 
+  mutate(prop = lead_elec_costs / sum(lead_elec_costs, na.rm = TRUE))
+
+# Broadcast total DTE revenue across service territory using DOE LEAD proportions
+dte_doe_consumption <- dte_doe_consumption %>%
+  mutate(dte_energy_costs = prop * total_revenue_2024) %>%
+  # adding number of households
+  left_join(
+    household_counts,
+    by = c("GEOID")
+  ) %>%
+  # adding median income
+  left_join(
+    median_household_income,
+    by = c("GEOID")
+  ) %>%
+  mutate(avg_annual_hh_dte_elec_costs = dte_energy_costs / hh_count) %>%
+  mutate(burden_e = avg_annual_hh_dte_elec_costs / hh_med_income) %>%
+  # Adding MiEJScreen Scores and Percentiles
+  left_join(
+    miejscreen %>%
+      select(GEOID, MiEJScore, MiEJScorePL),
+    by = c("GEOID")
+  ) %>%
+  # Adding low income percents
+  left_join(
+    fpl %>%
+      filter(fpl_cat == "low-income") %>%
+      select(GEOID, percent),
+    by = c("GEOID")
+  )
+
+# Number of tracts above 1.75%
+dte_doe_consumption %>%
+  filter(burden_e > 0.0175) %>%
+  summarize(hh_count = sum(hh_count, na.rm = TRUE),
+            n = n())
+
+# Number of tracts above 3%
+dte_doe_consumption %>%
+  filter(burden_e > 0.03) %>%
+  summarize(hh_count = sum(hh_count, na.rm = TRUE),
+            n = n())
+
+# Number of tracts above 3.22%
+dte_doe_consumption %>%
+  filter(burden_e > 0.0322) %>%
+  summarize(hh_count = sum(hh_count, na.rm = TRUE),
+            n = n())
+
+# Number of tracts above 3.5%
+dte_doe_consumption %>%
+  filter(burden_e > 0.035) %>%
+  summarize(hh_count = sum(hh_count, na.rm = TRUE),
+            n = n())
+
+# Number of tracts above 4%
+dte_doe_consumption %>%
+  filter(burden_e > 0.04) %>%
+  summarize(hh_count = sum(hh_count, na.rm = TRUE),
+            n = n())
+
+# Number of tracts above 4.83%
+dte_doe_consumption %>%
+  filter(burden_e > 0.0483) %>%
+  summarize(hh_count = sum(hh_count, na.rm = TRUE),
+            n = n())
+
+# Number of tracts above 4.83%
+tmp <- dte_doe_consumption %>%
+  filter(burden_e > 0.0483,
+         MiEJScorePL > 80,
+         percent > 65) %>%
+  summarize(hh_count = sum(hh_count, na.rm = TRUE),
+            n = n())
+
+# Number of tracts above 5%
+dte_doe_consumption %>%
+  filter(burden_e > 0.05) %>%
+  summarize(hh_count = sum(hh_count, na.rm = TRUE),
+            n = n())
+
+# Number of tracts above 6%
+dte_doe_consumption %>%
+  filter(burden_e > 0.06) %>%
+  summarize(hh_count = sum(hh_count, na.rm = TRUE),
+            n = n())
+
+# Number of tracts above 7.5%
+dte_doe_consumption %>%
+  filter(burden_e > 0.075) %>%
+  summarize(hh_count = sum(hh_count, na.rm = TRUE),
+            n = n())
+
+# Number of tracts above 75th percentile electric burden
+dte_doe_consumption %>%
+  mutate(percentile = percent_rank(burden_e)) %>%
+  filter(percentile > 0.75) %>%
+  filter(burden_e > 0.0175) %>%
+  summarize(hh_count = sum(hh_count, na.rm = TRUE),
+            n = n())
+
+# Number of tracts above 75th percentile electric burden
+dte_doe_consumption %>%
+  mutate(percentile = percent_rank(burden_e)) %>%
+  filter(percentile > 0.75) %>%
+  filter(burden_e > 0.03) %>%
+  summarize(hh_count = sum(hh_count, na.rm = TRUE),
+            n = n())
+
+dte_doe_consumption %>%
+  mutate(percentile = percent_rank(burden_e)) %>%
+  filter(percentile > 0.75) %>%
+  filter(burden_e > 0.035) %>%
+  summarize(hh_count = sum(hh_count, na.rm = TRUE),
+            n = n())
+
+dte_doe_consumption %>%
+  mutate(percentile = percent_rank(burden_e)) %>%
+  filter(percentile > 0.75) %>%
+  filter(burden_e > 0.05) %>%
+  summarize(hh_count = sum(hh_count, na.rm = TRUE),
+            n = n())
+
