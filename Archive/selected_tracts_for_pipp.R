@@ -151,6 +151,12 @@ dte_doe_consumption <- dte_doe_consumption %>%
     by = c("GEOID")
   )
 
+write.csv(
+  dte_doe_consumption,
+  "outputs/dte_doe_consumption_estimates.csv",
+  row.names = FALSE
+)
+
 # Selecting tracts for community-wide PIPP======================================
 
 # Selection criteria includes:
@@ -207,8 +213,14 @@ ggplot() +
   annotation_map_tile(type = "cartolight", zoomin = 0) +
   geom_sf(
     data = mi_tracts %>%
-      filter(GEOID %in% unique(community_wide_pipp$GEOID)),
-    fill = "red",
+      filter(GEOID %in% unique(community_wide_pipp$GEOID)) %>%
+      mutate(
+        tract_cat = case_when(
+          (GEOID %in% c(26163522300)) ~ "outliers",
+          TRUE ~ "non-outlier"
+      )
+    ),
+    aes(fill = tract_cat),
     color = "black",
     alpha = 0.5
   ) +
