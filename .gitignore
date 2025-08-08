@@ -12,6 +12,7 @@ data/
 
 # Outputs
 outputs/
+figures/
 
 # API keys
 us_census_api_key.txt
