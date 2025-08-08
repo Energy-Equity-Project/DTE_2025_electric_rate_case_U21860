@@ -74,8 +74,6 @@ dte_lead %>%
             elep = weighted.mean(elep, units, na.rm = TRUE),
             total_cost = weighted.mean(total_cost, na.rm = TRUE))
 
-0.5841223 * 0.06
-
 dte_df <- dte_lead %>%
   mutate(total_electric_costs = elep * units) %>%
   mutate(prop_lead = total_electric_costs / sum(total_electric_costs, na.rm = TRUE)) %>%
@@ -85,6 +83,11 @@ dte_df <- dte_lead %>%
   mutate(avg_hh_dte_energy_costs = dte_energy_costs / dte_customers) %>%
   mutate(dte_burden_e = avg_hh_dte_energy_costs / hincp)
 
+write.csv(
+  dte_df,
+  "outputs/dte_df.csv",
+  row.names = FALSE
+)
 
 dte_pipp <- dte_df %>%
   mutate(
