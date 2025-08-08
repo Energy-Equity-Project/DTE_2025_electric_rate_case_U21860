@@ -34,7 +34,8 @@ li_percent <- dte_df %>%
 demographic_burdens <- dte_df %>%
   group_by(GEOID) %>%
   summarize(
-    med_elec_burden = weightedMedian(dte_burden_e, dte_customers, na.rm = TRUE)
+    med_elec_burden = weightedMedian(dte_burden_e, dte_customers, na.rm = TRUE),
+    dte_customers = sum(dte_customers, na.rm = TRUE)
   ) %>%
   ungroup() %>%
   mutate(med_elec_burden = 100 * med_elec_burden) %>%
@@ -120,6 +121,41 @@ demographic_burdens %>%
     y = "Median electric burden within tract",
     caption = "Data sources:\nUS Census American Community Survey, 2023, B01001_001, B01001A_001\nDOE, Low Income Energy Affordability Tool, 2024\nU-21860 DAAODE-3.9-01 Total Residential Revenue 2019 - 2024\nU-21860 DAAODE-3.7-8-01 Total Residential Count and Sales 2024"
   )
+
+demographic_burdens %>%
+  mutate(
+    race_cat = case_when(
+      bipoc_percent < 50 ~ "white alone",
+      bipoc_percent >= 50 ~ "BIPOC",
+      TRUE ~ "error"
+    )
+  ) %>%
+  mutate(
+    burden_cat = case_when(
+      med_elec_burden > 3.5 ~ "unaffordable",
+      med_elec_burden <= 3.5 ~ "affordable",
+      TRUE ~ "error"
+    )
+  ) %>%
+  group_by(race_cat, burden_cat) %>%
+  summarize(n = n()) %>%
+  ungroup() %>%
+  group_by(race_cat) %>%
+  mutate(percent = 100 * (n / sum(n))) %>%
+  ungroup()
+  
+  
+demographic_burdens %>%
+  mutate(
+    race_cat = case_when(
+      bipoc_percent < 50 ~ "white alone",
+      bipoc_percent >= 50 ~ "BIPOC",
+      TRUE ~ "error"
+    )
+  ) %>%
+  group_by(race_cat) %>%
+  summarize(med_elec_burden = weightedMedian(med_elec_burden, dte_customers, na.rm = TRUE)) %>%
+  ungroup()
 
 demographic_burdens %>%
   filter(bipoc_percent < 50) %>%
