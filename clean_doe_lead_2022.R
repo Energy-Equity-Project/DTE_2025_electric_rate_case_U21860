@@ -7,8 +7,11 @@ library(sf)
 # Reading in GIS data===========================================================
 
 # DTE service territory
-dte_service_territory <- st_read("../../Data/Electric_Retail_Service_Territories/Electric_Retail_Service_Territories.shp") %>%
-  filter(NAME == "DTE ELECTRIC COMPANY")
+# dte_service_territory <- st_read("../../Data/Electric_Retail_Service_Territories/Electric_Retail_Service_Territories.shp") %>%
+#   filter(NAME == "DTE ELECTRIC COMPANY")
+
+dte_service_territory <- st_read("../../Data/MPSC/Service Territories/ELECTRIC_UTILITY_SERVICE_AREA_MI_WFL1_-6578755284217806801/Electric_Utility_Service_Areas.shp") %>%
+  filter(Name == "DTE Electric Company")
 
 # US census geography
 mi_tracts <- st_read("../../Data/GIS/US_Census/tl_2023_26_tract/tl_2023_26_tract.shp")
@@ -90,6 +93,19 @@ write.csv(
   row.names = FALSE
 )
 
+dte_lead %>%
+  summarize(
+    elep = weighted.mean(elep, units, na.rm = TRUE),
+    total_cost = weighted.mean(total_cost, units, na.rm = TRUE)
+  )
+
+dte_lead %>%
+  filter(fpl150 %in% c("0-100%", "100-150%", "150-200%")) %>%
+  summarize(
+    elep = weighted.mean(elep, units, na.rm = TRUE),
+    total_cost = weighted.mean(total_cost, units, na.rm = TRUE)
+  )
+
 
 # A few preliminary data summaries
 dte_lead %>%
@@ -128,9 +144,3 @@ dte_lead %>%
   filter(burden > 0.06) %>%
   summarize(affordability_gap = sum(affordability_gap * units, na.rm = TRUE))
 
-dte_lead %>%
-  filter(GEOID == 26125166400) %>%
-  summarize(hincp = weighted.mean(hincp, units, na.rm = TRUE),
-            total_cost = weighted.mean(total_cost, units, na.rm =TRUE),
-            units = sum(units, na.rm = TRUE)) %>%
-  mutate(burden = total_cost / hincp)
