@@ -3,6 +3,7 @@
 library(tidyverse)
 library(readxl)
 library(janitor)
+library(lubridate)
 
 # DTE provided data=============================================================
 
@@ -58,13 +59,7 @@ write.csv(
   row.names = FALSE
 )
 
-# Average bill by customer
-li_avg_bill_per_customer <- li_revenues %>%
-  left_join(
-    li_customer_counts,
-    by = c("date", "rate_plan")
-  ) %>%
-  mutate(monthly_bill = revenue / customer_count)
+
 
 avg_bill_per_customer %>%
   filter(rate_plan == "d1_11" |

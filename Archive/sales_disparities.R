@@ -62,6 +62,17 @@ avg_customer_bills <- non_li_revenue %>%
     avg_non_li_bill = non_li_customers_revenue / non_li_customers
   )
 
+tmp_avg_bills <- avg_customer_bills %>%
+  group_by(rate_plan) %>%
+  summarize(
+    li_customers_revenue = sum(li_customers_revenue, na.rm = TRUE),
+    li_customers = sum(li_customers, na.rm = TRUE),
+    non_li_customers_revenue = sum(non_li_customers_revenue, na.rm = TRUE),
+    non_li_customers = sum(non_li_customers, na.rm = TRUE)
+  ) %>%
+  mutate(li_avg_bill = li_customers_revenue / li_customers,
+         non_li_avg_bill = non_li_customers_revenue / non_li_customers)
+
 non_li_rates <- total_kwh %>%
   mutate(year = year(date)) %>%
   filter(year == 2024) %>%
@@ -96,4 +107,18 @@ non_li_rates %>%
   filter(rate_plan != "d1_6") %>%
   mutate(percent_li_kwh = 100 * (li_sales_kWh / total_sales_kWh)) %>%
   summarize(avg_percent = mean(percent_li_kwh, na.rm = TRUE))
+
+# Average bill by customer
+li_avg_bill_per_customer <- li_revenue %>%
+  left_join(
+    li_customer_counts,
+    by = c("date", "rate_plan")
+  ) %>%
+  mutate(monthly_bill = revenue / customer_count) %>%
+  mutate(year = year(date)) %>%
+  filter(year == 2024) %>%
+  group_by(rate_plan) %>%
+  summarize(annual_bill = sum(monthly_bill, na.rm = TRUE)) %>%
+
+
 
