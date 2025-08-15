@@ -59,25 +59,25 @@ demographic_burdens %>%
   ggplot(aes(x = low_income_percent, y = med_elec_burden)) +
   geom_point(alpha = 0.5) +
   geom_smooth() +
-  geom_hline(yintercept = 3.5, linetype = "dashed", size = 1, color = "red") +
+  geom_hline(yintercept = 3.6, linetype = "dashed", size = 1, color = "red") +
   # Add custom annotation text
   annotate("text", x = 0, y = 4.5, 
-           label = "Affordable electric\nburden: 3.5%",
-           hjust = 0, vjust = 0.5, family = "Inter", size = 3.5, fontface = "bold", lineheight = 1) +
-  scale_y_continuous(limits = c(0, 20), breaks = seq(0, 20, 2)) +
+           label = "Affordable electric\nburden: 3.6%",
+           hjust = 0, vjust = 0.5, family = "Inter", size = 3.6, fontface = "bold", lineheight = 1) +
+  scale_y_continuous(limits = c(0, 18.5), breaks = seq(0, 18, 2)) +
   theme_bw() +
   theme(
     plot.caption = element_text(family = "Inter", color = "grey50", size = 10, hjust = 0, vjust = 0)
   ) +
  # Add yellow rectangle background for annotation
  annotate("rect", 
-          xmin = 0, xmax = 47,
-          ymin = 18.5,
-          ymax = 19.5,
+          xmin = 0, xmax = 49,
+          ymin = 16.5,
+          ymax = 17.5,
           fill = "#FFEB99", alpha = 0.7) +
  # Add custom annotation text
- annotate("text", x = 1, y = 19, 
-          label = "Correlation Coefficient: 0.804",
+ annotate("text", x = 1, y = 17, 
+          label = "Correlation Coefficient: 0.838",
           hjust = 0, vjust = 0.5, family = "Inter", size = 5, fontface = "bold", lineheight = 0.5) +
   labs(
     x = "% of low income customers in tract",
@@ -95,22 +95,22 @@ cor(
 demographic_burdens %>%
   ggplot(aes(x = bipoc_percent, y = med_elec_burden)) +
   geom_point(alpha = 0.5) +
-  geom_hline(yintercept = 3.5, linetype = "dashed", size = 1, color = "red") +
+  geom_hline(yintercept = 3.6, linetype = "dashed", size = 1, color = "red") +
   # Add custom annotation text
   annotate("text", x = -2, y = 4.5, 
-           label = "Affordable electric\nburden: 3.5%", angle = 90,
-           hjust = 0, vjust = 0.5, family = "Inter", size = 3.5, fontface = "bold", lineheight = 1) +
+           label = "Affordable electric\nburden: 3.6%", angle = 90,
+           hjust = 0, vjust = 0.5, family = "Inter", size = 3.6, fontface = "bold", lineheight = 1) +
   geom_smooth() +
-  scale_y_continuous(limits = c(0, 20), breaks = seq(0, 20, 2)) +
+  scale_y_continuous(limits = c(0, 18.5), breaks = seq(0, 18, 2)) +
   # Add yellow rectangle background for annotation
   annotate("rect", 
-           xmin = 0, xmax = 47,
-           ymin = 18.5,
-           ymax = 19.5,
+           xmin = 0, xmax = 50,
+           ymin = 16.5,
+           ymax = 17.5,
            fill = "#FFEB99", alpha = 0.7) +
   # Add custom annotation text
-  annotate("text", x = 1, y = 19, 
-           label = "Correlation Coefficient: 0.643",
+  annotate("text", x = 1, y = 17, 
+           label = "Correlation Coefficient: 0.682",
            hjust = 0, vjust = 0.5, family = "Inter", size = 5, fontface = "bold", lineheight = 0.5) +
   theme_bw() +
   theme(
@@ -132,8 +132,8 @@ demographic_burdens %>%
   ) %>%
   mutate(
     burden_cat = case_when(
-      med_elec_burden > 3.5 ~ "unaffordable",
-      med_elec_burden <= 3.5 ~ "affordable",
+      med_elec_burden > 3.6 ~ "unaffordable",
+      med_elec_burden <= 3.6 ~ "affordable",
       TRUE ~ "error"
     )
   ) %>%
@@ -165,5 +165,12 @@ demographic_burdens %>%
   filter(bipoc_percent >= 50 &
            med_elec_burden > 9.03) %>%
   nrow()
+
+# Stats needed
+dte_df %>%
+  filter(fpl150 %in% c("0-100%", "100-150%", "150-200%")) %>%
+  summarize(med_elec_burden = weightedMedian(avg_hh_dte_energy_costs, dte_customers, na.rm = TRUE),
+            med_income = weightedMedian())
+  
 
 
