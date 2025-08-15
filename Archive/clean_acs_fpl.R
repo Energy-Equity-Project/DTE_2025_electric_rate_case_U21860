@@ -4,7 +4,14 @@ library(tidyverse)
 library(readxl)
 library(janitor)
 
-fpl <- read.csv("outputs/fpl_2023.csv") %>%
+tmp <- read.csv("outputs/fpl_2023.csv") %>%
+  select(GEOID = GEO_ID, ends_with("E")) %>%
+  select(-state) %>%
+  pivot_longer(-c(NAME, GEOID, B17026_001E), names_to = "fpl_cat", values_to = "hh_count") %>%
+  rename(total = B17026_001E) %>%
+  mutate(GEOID = as.numeric(gsub("1400000US", "", GEOID)))
+
+fpl <- read.csv("outputs/fpl_2023_families.csv") %>%
   select(GEOID = GEO_ID, ends_with("E")) %>%
   select(-state) %>%
   pivot_longer(-c(NAME, GEOID, B17026_001E), names_to = "fpl_cat", values_to = "hh_count") %>%
