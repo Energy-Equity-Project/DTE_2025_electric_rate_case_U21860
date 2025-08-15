@@ -66,13 +66,21 @@ dte_total_customer_count <- dte_customers_counts %>%
   summarize(mean_total_customers = sum(mean_total_customers, na.rm = TRUE)) %>%
   pull(mean_total_customers)
 
-# How much of utility bills are due to electric consumption: 0.5841223
+# How much of utility bills are due to electric consumption: 0.5993347
 dte_lead %>%
   # LI customers
   filter(fpl150 %in% c("0-100%", "100-150%", "150-200%")) %>%
-  summarize(prop = weighted.mean(elep / total_cost, units, na.rm = TRUE),
-            elep = weighted.mean(elep, units, na.rm = TRUE),
-            total_cost = weighted.mean(total_cost, na.rm = TRUE))
+  summarize(elep = weighted.mean(elep, units, na.rm = TRUE),
+            total_cost = weighted.mean(total_cost, units, na.rm = TRUE)) %>%
+  mutate(elep / total_cost)
+
+dte_lead %>%
+  filter(fpl150 %in% c("0-100%", "100-150%", "150-200%")) %>%
+  summarize(
+    elep = weighted.mean(elep, units, na.rm = TRUE),
+    total_cost = weighted.mean(total_cost, units, na.rm = TRUE)
+  )
+
 
 dte_df <- dte_lead %>%
   mutate(total_electric_costs = elep * units) %>%
@@ -91,8 +99,8 @@ write.csv(
 
 dte_pipp <- dte_df %>%
   mutate(
-    target_burden_e_6 = 0.06 * 0.5841223,
-    target_burden_e_10 = 0.1 * 0.5841223
+    target_burden_e_6 = 0.06 * 0.5993347,
+    target_burden_e_10 = 0.1 * 0.5993347
   ) %>%
   mutate(
     target_avg_hh_elec_cost_6 = hincp * target_burden_e_6,
@@ -102,6 +110,14 @@ dte_pipp <- dte_df %>%
     affordability_gap_6 = avg_hh_dte_energy_costs - target_avg_hh_elec_cost_6,
     affordability_gap_10 = avg_hh_dte_energy_costs - target_avg_hh_elec_cost_10
   )
+
+dte_df %>%
+  filter(!(fpl150 %in% c("0-100%", "100-150%", "150-200%"))) %>%
+  summarize(dte_customers = sum(dte_customers, na.rm = TRUE))
+
+dte_df %>%
+  # filter(fpl150 %in% c("0-100%", "100-150%", "150-200%")) %>%
+  summarize(dte_customers = sum(dte_customers, na.rm = TRUE))
 
 
 # DTE wide PIPP affordability gap for 6% total energy burden====================
